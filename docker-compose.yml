@@ -1,0 +1,17 @@
+name: "payments-service"
+
+services:
+    
+  payments-api:
+    build:
+      context: ./
+      dockerfile: ./api_container/Dockerfile
+    ports:
+      - "${EXTERNAL_SERVICES_API_PORT}:${SERVICES_API_PORT}"
+    restart: unless-stopped
+    networks:
+      - my-services-network
+
+networks:
+  my-services-network:
+    external: true
