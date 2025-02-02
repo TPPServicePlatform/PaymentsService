@@ -63,5 +63,6 @@ def calculate_distance(location1: dict, location2: dict) -> float:
     coords2 = (location2['latitude'], location2['longitude'])
     return geopy.distance.distance(coords1, coords2).km
 
-    
+def get_time_past_days(days: int) -> str:
+    return datetime.datetime.fromtimestamp(time.time() - days * DAY).strftime('%Y-%m-%d %H:%M:%S')    
 
