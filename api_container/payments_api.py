@@ -55,7 +55,7 @@ REQUIRED_LOCATION_FIELDS = {"longitude", "latitude"}
 
 REQUIRED_COUPON_CREATE_FIELDS = {'coupon_code', 'discount_percent', 'expiration_date'}
 VALID_COUPON_RULES = {'category_rules', 'service_rules', 'provider_rules', 'location_rule', 'max_distance', 'users_rules'}
-VALID_COUPON_CREATE_FIELDS = {'max_discount'} + VALID_COUPON_RULES + REQUIRED_COUPON_CREATE_FIELDS
+VALID_COUPON_CREATE_FIELDS = {'max_discount'} | VALID_COUPON_RULES | REQUIRED_COUPON_CREATE_FIELDS
 
 starting_duration = time_to_string(time.time() - time_start)
 logger.info(f"Payments API started in {starting_duration}")
@@ -123,9 +123,9 @@ def obtain_available_coupons(
         provider_id=provider_id
     )
     
-    return available_coupons
+    return {"status": "ok", "coupons": available_coupons}
 
-@app.put("/coupons/activated/{coupon_code}/{user_id}")
+@app.put("/coupons/activate/{coupon_code}/{user_id}")
 def activate_coupon(coupon_code: str, user_id: str, body: dict):
     needed = {'client_location', 'category', 'service_id', 'provider_id'}
     if not all([field in body for field in needed]):
@@ -141,13 +141,13 @@ def activate_coupon(coupon_code: str, user_id: str, body: dict):
         raise HTTPException(status_code=400, detail=message)
     
     
-    if not coupons_manager.activate_coupon(coupon_code, user_id):
+    if not coupons_manager.add_user_to_coupon(coupon_code, user_id):
         raise HTTPException(status_code=500, detail="Failed to activate the coupon")
     
     return {"status": "ok", "discount_percent": coupon['discount_percent'], "max_discount": coupon['max_discount']}
 
 def _verify_coupon_rules(coupon, user_id, category, service_id, provider_id, client_location):
-    validate = lambda item, rule: len(coupon.get(rule, [])) == 0 or item in coupon[rule]
+    validate = lambda item, rule: len(coupon.get(rule) or []) == 0 or item in coupon[rule]
     
     if user_id in coupon.get('used_by', {}):
         return False, "Coupon already used by this user"
@@ -164,7 +164,7 @@ def _verify_coupon_rules(coupon, user_id, category, service_id, provider_id, cli
     if not validate(provider_id, 'provider_rules'):
         return False, "Provider rule not satisfied"
     
-    if 'location_rule' in coupon:
+    if 'location_rule' in coupon and coupon['location_rule']:
         location = validate_location(client_location, REQUIRED_LOCATION_FIELDS)
         distance = calculate_distance(location, coupon['location_rule'])
         if distance > coupon['max_distance']:

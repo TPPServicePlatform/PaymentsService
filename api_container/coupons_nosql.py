@@ -161,7 +161,8 @@ class Coupons:
         pipeline.append({'$match': {'$or': [{'users_rules': {'$exists': False}}, {'users_rules': None}, {'users_rules': {'$in': [user_id]}}]}})
 
         # Filter by used_by (avoid multiple uses of the same coupon by the same user)
-        pipeline.append({'$match': {'used_by': {'$not': {'$elemMatch': {'$eq': user_id}}}}})
+        # used_by is a dictionary with the following structure: {'user_id': 'used_at'}
+        pipeline.append({'$match': {'$or': [{'used_by': {'$exists': False}}, {'used_by': {}}, {'used_by.' + user_id: {'$exists': False}}]}})
 
         # Project only the necessary fields
         pipeline.append({'$project': {'_id': 0, 'uuid': 1, 'discount_percent': 1, 'max_discount': 1, 'expiration_date': 1}})
@@ -191,10 +192,6 @@ class Coupons:
         except Exception as e:
             logger.error(f"Error adding item '{item}' to rule '{rule}' of coupon '{coupon_code}': {e}")
             return False
-    
-    def print_all(self):
-        for coupon in self.collection.find():
-            print(coupon)
             
 
 
