@@ -60,8 +60,6 @@ REQUIRED_COUPON_CREATE_FIELDS = {'coupon_code', 'discount_percent', 'expiration_
 VALID_COUPON_RULES = {'category_rules', 'service_rules', 'provider_rules', 'location_rule', 'max_distance', 'users_rules'}
 VALID_COUPON_CREATE_FIELDS = {'max_discount'} | VALID_COUPON_RULES | REQUIRED_COUPON_CREATE_FIELDS
 
-REQUIRED_TRANSACTION_FIELDS = {'points', 'description'}
-
 starting_duration = time_to_string(time.time() - time_start)
 logger.info(f"Payments API started in {starting_duration}")
 
