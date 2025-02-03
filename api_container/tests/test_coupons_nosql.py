@@ -31,7 +31,7 @@ def coupons(mongo_client):
     return Coupons(test_client=mongo_client)
 
 def test_create_coupon(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -40,7 +40,7 @@ def test_create_coupon(coupons, mocker):
     assert success == True
 
 def test_get_coupon(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -57,7 +57,7 @@ def test_get_ineexistent_coupon(coupons):
     assert coupon == None
 
 def test_delete_coupon(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -70,7 +70,7 @@ def test_delete_coupon(coupons, mocker):
     assert coupon == None
 
 def test_update_coupon(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -90,7 +90,7 @@ def test_update_ineexistent_coupon(coupons):
     assert coupon == None
 
 def test_add_user_to_coupon(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -110,7 +110,7 @@ def test_add_user_to_ineexistent_coupon(coupons):
     assert coupon == None
 
 def test_add_item_to_coupon(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -124,7 +124,7 @@ def test_add_item_to_coupon(coupons, mocker):
     assert 'TEST_CATEGORY' in coupon['category_rules']
 
 def test_obtain_available_coupons_expiration_date(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -148,7 +148,7 @@ def test_obtain_available_coupons_expiration_date(coupons, mocker):
     assert coupons_list[0]['uuid'] == 'TEST_COUPON'
 
 def test_obtain_available_coupons_category_rules(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -178,7 +178,7 @@ def test_obtain_available_coupons_category_rules(coupons, mocker):
     assert all([coupon['uuid'] in ['TEST_COUPON', 'TEST_COUPON_3'] for coupon in coupons_list])
 
 def test_obtain_available_coupons_service_rules(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -208,7 +208,7 @@ def test_obtain_available_coupons_service_rules(coupons, mocker):
     assert all([coupon['uuid'] in ['TEST_COUPON', 'TEST_COUPON_3'] for coupon in coupons_list])
 
 def test_obtain_available_coupons_provider_rules(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -238,7 +238,7 @@ def test_obtain_available_coupons_provider_rules(coupons, mocker):
     assert all([coupon['uuid'] in ['TEST_COUPON', 'TEST_COUPON_3'] for coupon in coupons_list])
 
 def test_obtain_available_coupons_users_rules(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -268,7 +268,7 @@ def test_obtain_available_coupons_users_rules(coupons, mocker):
     assert all([coupon['uuid'] in ['TEST_COUPON', 'TEST_COUPON_3'] for coupon in coupons_list])
 
 def test_obtain_available_coupons_used_by(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
@@ -293,7 +293,7 @@ def test_obtain_available_coupons_used_by(coupons, mocker):
     assert coupons_list[0]['uuid'] == 'TEST_COUPON_2'
 
 def test_obtain_available_coupons_mixed_rules(coupons, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('coupons_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
     success = coupons.insert(
         coupon_code= 'TEST_COUPON',
         discount_percent= 10,
