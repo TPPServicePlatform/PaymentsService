@@ -9,13 +9,15 @@ import sys
 import uuid
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'lib')))
-from lib.utils import get_actual_time, get_mongo_client, get_time_past_days
+from lib.utils import get_actual_time, get_mongo_client, get_timestamp_after_days
 
 HOUR = 60 * 60
 MINUTE = 60
 MILLISECOND = 1_000
 
 EXPIRATION_TIME = 2 * 365 # 2 years
+
+EXPIRED_POINTS_MESSAGE = "Expired points"
 
 # TODO: (General) -> Create tests for each method && add the required checks in each method
 class Loyalty:
@@ -68,33 +70,53 @@ class Loyalty:
             logger.error(f"OperationFailure: {e}")
             return False
     
-    def add_transaction(self, user_id: str, points: int, description: str) -> bool:
-        if points == 0:
+    def _update_doc(self, user_id: str, data: Dict) -> bool:
+        try:
+            self.collection.update_one({'uuid': user_id}, {'$set': data})
+            return True
+        except Exception as e:
+            logger.error(f"Error updating user with uuid '{user_id}': {e}")
             return False
+
+        
+    def _update_user_doc(self, user_id: str) -> bool:
         user = self.collection.find_one({'uuid': user_id})
         if not user:
-            if not self._create_user_doc(user_id):
-                return False
-            user = self.collection.find_one({'uuid': user_id})
+            return True
         
-        success = True
+        expired_points = [(expiration_date, points) for expiration_date, points in user['points'] if expiration_date <= get_actual_time()]
+        for expiration_date, saved_points in expired_points:
+            user['history'].append({'points': -saved_points, 'timestamp': expiration_date, 'description': EXPIRED_POINTS_MESSAGE})
         user['points'] = [(expiration_date, points) for expiration_date, points in user['points'] if expiration_date > get_actual_time()]
         user['updated_at'] = get_actual_time()
 
+        return self._update_doc(user_id, user)
+
+    def add_transaction(self, user_id: str, points: int, description: str) -> bool:
+        if points == 0:
+            return False
+        if not self.collection.find_one({'uuid': user_id}) and not self._create_user_doc(user_id):
+            return False
+
+        if not self._update_user_doc(user_id):
+            return False
+        user = self.collection.find_one({'uuid': user_id})
+        
+        success = True
         if points > 0:
-            user['points'].append((get_time_past_days(EXPIRATION_TIME), points))
+            user['points'].append((get_timestamp_after_days(EXPIRATION_TIME), points))
         elif sum([points for _, points in user['points']]) >= abs(points):
-            to_delete = abs(points)
             sorted_points = sorted(user['points'], key=lambda x: x[0])
-            for i, (expiration_date, points) in enumerate(sorted_points):
-                if points >= to_delete:
-                    sorted_points[i] = (expiration_date, points - to_delete)
+            to_delete = abs(points)
+            for i, (expiration_date, saved_points) in enumerate(sorted_points):
+                if saved_points >= to_delete:
+                    sorted_points[i] = (expiration_date, saved_points - to_delete)
                     break
-                to_delete -= points
+                to_delete -= saved_points
                 sorted_points[i] = (expiration_date, 0)
             user['points'] = [(expiration_date, points) for expiration_date, points in sorted_points if points > 0]
-        else:
-            success = False
+        else: # Not enough points
+            return False
 
         if success:
             user['history'].append({'points': points, 'timestamp': get_actual_time(), 'description': description})
@@ -110,19 +132,20 @@ class Loyalty:
         user = self.collection.find_one({'uuid': user_id})
         if not user:
             return 0
+        self._update_user_doc(user_id)
         return sum([points for expiration_date, points in user['points'] if expiration_date > get_actual_time()])
     
     def get_history(self, user_id: str) -> List[Dict]:
         user = self.collection.find_one({'uuid': user_id})
         if not user:
             return []
+        self._update_user_doc(user_id)
         return sorted(user['history'], key=lambda x: x['timestamp'], reverse=True)
     
     def get_expiring_points(self, user_id: str) -> List[Dict]:
         user = self.collection.find_one({'uuid': user_id})
         if not user:
             return []
+        self._update_user_doc(user_id)
         return sorted([{'points': points, 'expiration_date': expiration_date} for expiration_date, points in user['points'] if expiration_date > get_actual_time()], key=lambda x: x['expiration_date'])
     
-
-        
