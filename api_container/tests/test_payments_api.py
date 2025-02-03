@@ -27,7 +27,7 @@ def test_app():
     coupons_manager.collection.drop()
 
 def test_create_coupon(test_app, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('payments_api.get_actual_time', return_value='2023-01-01 00:00:00')
     body = {
         'coupon_code': 'TEST_COUPON',
         'discount_percent': 10.0,
@@ -43,7 +43,7 @@ def test_create_coupon(test_app, mocker):
     assert coupon['expiration_date'] == '2023-01-31 23:59:59'
 
 def test_create_coupon_needs_rules(test_app, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('payments_api.get_actual_time', return_value='2023-01-01 00:00:00')
     body = {
         'coupon_code': 'TEST_COUPON',
         'discount_percent': 10.0,
@@ -54,7 +54,7 @@ def test_create_coupon_needs_rules(test_app, mocker):
     assert response.json()['detail'] == 'At least one rule is needed'
 
 def test_delete_coupon(test_app, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('payments_api.get_actual_time', return_value='2023-01-01 00:00:00')
     body = {
         'coupon_code': 'TEST_COUPON',
         'discount_percent': 10.0,
@@ -75,7 +75,7 @@ def test_delete_coupon_not_found(test_app):
     assert response.json()['detail'] == 'Coupon not found'
 
 def test_obtain_available_coupons(test_app, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('payments_api.get_actual_time', return_value='2023-01-01 00:00:00')
     body = {
         'coupon_code': 'TEST_COUPON',
         'discount_percent': 10.0,
@@ -111,7 +111,7 @@ def test_obtain_available_coupons_no_coupons(test_app):
     assert len(coupons) == 0
 
 def test_activate_coupon(test_app, mocker):
-    mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('payments_api.get_actual_time', return_value='2023-01-01 00:00:00')
     body = {
         'coupon_code': 'TEST_COUPON',
         'discount_percent': 10.0,
