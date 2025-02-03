@@ -131,21 +131,21 @@ class Loyalty:
     def get_total_points(self, user_id: str) -> int:
         user = self.collection.find_one({'uuid': user_id})
         if not user:
-            return 0
+            return None
         self._update_user_doc(user_id)
         return sum([points for expiration_date, points in user['points'] if expiration_date > get_actual_time()])
     
     def get_history(self, user_id: str) -> List[Dict]:
         user = self.collection.find_one({'uuid': user_id})
         if not user:
-            return []
+            return None
         self._update_user_doc(user_id)
         return sorted(user['history'], key=lambda x: x['timestamp'], reverse=True)
     
     def get_expiring_points(self, user_id: str) -> List[Dict]:
         user = self.collection.find_one({'uuid': user_id})
         if not user:
-            return []
+            return None
         self._update_user_doc(user_id)
         return sorted([{'points': points, 'expiration_date': expiration_date} for expiration_date, points in user['points'] if expiration_date > get_actual_time()], key=lambda x: x['expiration_date'])
     
