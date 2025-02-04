@@ -17,7 +17,7 @@ os.environ['MONGO_TEST_DB'] = 'test_db'
 # Add the necessary paths to the Python path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'lib')))
-from payments_api import app, coupons_manager
+from payments_api import app, coupons_manager, loyalty_manager
 
 @pytest.fixture(scope='function')
 def test_app():
@@ -25,6 +25,7 @@ def test_app():
     yield client
     # Teardown: clear the database after each test
     coupons_manager.collection.drop()
+    loyalty_manager.collection.drop()
 
 def test_create_coupon(test_app, mocker):
     mocker.patch('lib.utils.get_actual_time', return_value='2023-01-01 00:00:00')
@@ -129,4 +130,66 @@ def test_activate_coupon(test_app, mocker):
     response = test_app.put('/coupons/activate/TEST_COUPON/test_user', json=body)
     assert response.status_code == 200
 
+def test_add_loyalty_points(test_app, mocker):
+    mocker.patch('loyalty_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('loyalty_nosql.get_timestamp_after_days', return_value='2025-01-01 00:00:00')
+    body = {'points': 60, 'description': 'Test sum points'}
+    response = test_app.put('/loyalty/sum_points/test_user', json=body)
+    assert response.status_code == 200
+
+def test_use_loyalty_points_not_enough(test_app, mocker):
+    mocker.patch('loyalty_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('loyalty_nosql.get_timestamp_after_days', return_value='2025-01-01 00:00:00')
+    body = {'points': -60, 'description': 'Test use points'}
+    response = test_app.put('/loyalty/use_points/test_user', json=body)
+    assert response.status_code == 400
+    assert response.json()['detail'] == 'Not enough points'
+
+def test_use_loyalty_points(test_app, mocker):
+    mocker.patch('loyalty_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('loyalty_nosql.get_timestamp_after_days', return_value='2025-01-01 00:00:00')
+    body = {'points': 60, 'description': 'Test sum points'}
+    test_app.put('/loyalty/sum_points/test_user', json=body)
+
+    body = {'points': -30, 'description': 'Test use points'}
+    response = test_app.put('/loyalty/use_points/test_user', json=body)
+    assert response.status_code == 200
+
+def test_obtain_user_points(test_app, mocker):
+    mocker.patch('loyalty_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('loyalty_nosql.get_timestamp_after_days', return_value='2025-01-01 00:00:00')
+
+    body = {'points': 60, 'description': 'Test sum points'}
+    test_app.put('/loyalty/sum_points/test_user', json=body)
+
+    response = test_app.get('/loyalty/points/test_user')
+    assert response.status_code == 200
+    assert response.json()['total_points'] == 60
+    assert {'points': 60, 'expiration_date': '2025-01-01 00:00:00'} in response.json()['expiring_dates']
+
+def test_obtain_user_points_new_user(test_app):
+    response = test_app.get('/loyalty/points/test_user')
+    assert response.status_code == 404
+    assert response.json()['detail'] == 'User does not have loyalty points yet'
+
+def test_get_history(test_app, mocker):
+    mocker.patch('loyalty_nosql.get_actual_time', return_value='2023-01-01 00:00:00')
+    mocker.patch('loyalty_nosql.get_timestamp_after_days', return_value='2025-01-01 00:00:00')
+
+    body = {'points': 60, 'description': 'Test sum points'}
+    test_app.put('/loyalty/sum_points/test_user', json=body)
+
+    body = {'points': -30, 'description': 'Test use points'}
+    test_app.put('/loyalty/use_points/test_user', json=body)
+
+    response = test_app.get('/loyalty/history/test_user')
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+    assert {'points': 60, 'timestamp': '2023-01-01 00:00:00', 'description': 'Test sum points'} in response.json()["history"]
+    assert {'points': -30, 'timestamp': '2023-01-01 00:00:00', 'description': 'Test use points'} in response.json()["history"]
+
+def test_get_history_new_user(test_app):
+    response = test_app.get('/loyalty/history/test_user')
+    assert response.status_code == 404
+    assert response.json()['detail'] == 'User does not have loyalty points yet'
 

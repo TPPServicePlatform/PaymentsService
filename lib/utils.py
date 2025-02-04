@@ -14,6 +14,8 @@ HOUR = 60 * 60
 MINUTE = 60
 MILLISECOND = 1_000
 
+REQUIRED_LOCATION_FIELDS = {"longitude", "latitude"}
+
 def time_to_string(time_in_seconds: float) -> str:
     minutes = int(time_in_seconds // MINUTE)
     seconds = int(time_in_seconds % MINUTE)
@@ -63,5 +65,35 @@ def calculate_distance(location1: dict, location2: dict) -> float:
     coords2 = (location2['latitude'], location2['longitude'])
     return geopy.distance.distance(coords1, coords2).km
 
-    
+def get_timestamp_after_days(days: int) -> str:
+    return datetime.datetime.fromtimestamp(time.time() + days * DAY).strftime('%Y-%m-%d %H:%M:%S')
 
+
+def verify_coupon_rules(coupon, user_id, category, service_id, provider_id, client_location):
+    validate = lambda item, rule: len(coupon.get(rule) or []) == 0 or item in coupon[rule]
+    
+    if user_id in coupon.get('used_by', {}):
+        return False, "Coupon already used by this user"
+    
+    if get_actual_time() > coupon['expiration_date']:
+        return False, "Coupon expired"
+    
+    if not validate(category, 'category_rules'):
+        return False, "Category rule not satisfied"
+    
+    if not validate(service_id, 'service_rules'):
+        return False, "Service rule not satisfied"
+    
+    if not validate(provider_id, 'provider_rules'):
+        return False, "Provider rule not satisfied"
+    
+    if 'location_rule' in coupon and coupon['location_rule']:
+        location = validate_location(client_location, REQUIRED_LOCATION_FIELDS)
+        distance = calculate_distance(location, coupon['location_rule'])
+        if distance > coupon['max_distance']:
+            return False, "Location rule not satisfied"
+        
+    if not validate(user_id, 'users_rules'):
+        return False, "User rule not satisfied"
+    
+    return True, ""
