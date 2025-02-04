@@ -14,7 +14,7 @@ HOUR = 60 * 60
 MINUTE = 60
 MILLISECOND = 1_000
 
-REQUIRED_TRANSACTION_FIELDS = {'points', 'description'}
+REQUIRED_LOCATION_FIELDS = {"longitude", "latitude"}
 
 def time_to_string(time_in_seconds: float) -> str:
     minutes = int(time_in_seconds // MINUTE)

@@ -53,12 +53,13 @@ else:
     coupons_manager = Coupons()
     loyalty_manager = Loyalty()
 
-# CONSTANTS HERE #
 REQUIRED_LOCATION_FIELDS = {"longitude", "latitude"}
 
 REQUIRED_COUPON_CREATE_FIELDS = {'coupon_code', 'discount_percent', 'expiration_date'}
 VALID_COUPON_RULES = {'category_rules', 'service_rules', 'provider_rules', 'location_rule', 'max_distance', 'users_rules'}
 VALID_COUPON_CREATE_FIELDS = {'max_discount'} | VALID_COUPON_RULES | REQUIRED_COUPON_CREATE_FIELDS
+
+REQUIRED_TRANSACTION_FIELDS = {'points', 'description'}
 
 starting_duration = time_to_string(time.time() - time_start)
 logger.info(f"Payments API started in {starting_duration}")
@@ -167,7 +168,7 @@ def use_loyalty_points(user_id: str, body: dict):
         raise HTTPException(status_code=400, detail="Points must be negative")
     
     total_points = loyalty_manager.get_total_points(user_id)
-    if body['points'] < abs(total_points):
+    if not total_points or total_points < abs(body['points']):
         raise HTTPException(status_code=400, detail="Not enough points")
     
     if not loyalty_manager.add_transaction(user_id, body['points'], body['description']):
