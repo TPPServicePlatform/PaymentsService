@@ -13,7 +13,7 @@ import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'lib')))
-from lib.utils import time_to_string, validate_fields, validate_location, verify_coupon_rules
+from lib.utils import time_to_string, validate_fields, validate_location, verify_coupon_rules, get_timestamp_after_days
 
 time_start = time.time()
 
@@ -60,6 +60,12 @@ VALID_COUPON_RULES = {'category_rules', 'service_rules', 'provider_rules', 'loca
 VALID_COUPON_CREATE_FIELDS = {'max_discount'} | VALID_COUPON_RULES | REQUIRED_COUPON_CREATE_FIELDS
 
 REQUIRED_TRANSACTION_FIELDS = {'points', 'description'}
+
+POINTS_PER_CASH = lambda cash: cash / 10
+CASH_COUPON_POINTS_NEEDED = lambda cash_discount: cash_discount * 10
+DISCOUNT_COUPON_POINTS_NEEDED = lambda discount: discount * 100
+
+YEAR = 365 # Days
 
 starting_duration = time_to_string(time.time() - time_start)
 logger.info(f"Payments API started in {starting_duration}")
@@ -161,20 +167,58 @@ def add_loyalty_transaction(user_id: str, body: dict):
     
     return {"status": "ok"}
 
-@app.put("/loyalty/use_points/{user_id}")
-def use_loyalty_points(user_id: str, body: dict):
-    validate_fields(body, REQUIRED_TRANSACTION_FIELDS, REQUIRED_TRANSACTION_FIELDS)
-    if body['points'] >= 0:
-        raise HTTPException(status_code=400, detail="Points must be negative")
+@app.put("/loyalty/use_points/cash_coupon/{user_id}")
+def buy_cash_coupon(user_id: str, body: dict):
+    validate_fields(body, {"CASH_DISCOUNT"}, {"CASH_DISCOUNT"})
+    if body['CASH_DISCOUNT'] <= 0:
+        raise HTTPException(status_code=400, detail="Discount must be positive")
     
+    points_needed = CASH_COUPON_POINTS_NEEDED(body['CASH_DISCOUNT'])
     total_points = loyalty_manager.get_total_points(user_id)
-    if not total_points or total_points < abs(body['points']):
+    if not total_points or total_points < points_needed:
         raise HTTPException(status_code=400, detail="Not enough points")
     
-    if not loyalty_manager.add_transaction(user_id, body['points'], body['description']):
+    coupon_code=f"CASH_{user_id}_{body['CASH_DISCOUNT']}_{time.time()}" # Unique coupon code
+    if not coupons_manager.insert(
+        coupon_code=coupon_code,
+        discount_percent=100,
+        max_discount=body['CASH_DISCOUNT'],
+        expiration_date=get_timestamp_after_days(YEAR),
+        users_rules=[user_id]
+    ):
+        raise HTTPException(status_code=500, detail="Failed to create the coupon")
+    
+    if not loyalty_manager.add_transaction(user_id, -points_needed, f"Bought cash coupon of {body['CASH_DISCOUNT']} ({coupon_code})"):
+        coupons_manager.delete(coupon_code)
         raise HTTPException(status_code=500, detail="Failed to use the points")
     
-    return {"status": "ok"}
+    return {"status": "ok", "coupon_code": coupon_code}
+    
+@app.put("/loyalty/use_points/discount_coupon/{user_id}")
+def buy_discount_coupon(user_id: str, body: dict):
+    validate_fields(body, {"DISCOUNT"}, {"DISCOUNT"})
+    if body['DISCOUNT'] <= 0 or body['DISCOUNT'] > 100:
+        raise HTTPException(status_code=400, detail="Invalid discount")
+    
+    points_needed = DISCOUNT_COUPON_POINTS_NEEDED(body['DISCOUNT'])
+    total_points = loyalty_manager.get_total_points(user_id)
+    if not total_points or total_points < points_needed:
+        raise HTTPException(status_code=400, detail="Not enough points")
+    
+    coupon_code=f"DISCOUNT_{user_id}_{body['DISCOUNT']}perc_{time.time()}" # Unique coupon code
+    if not coupons_manager.insert(
+        coupon_code=coupon_code,
+        discount_percent=body['DISCOUNT'],
+        expiration_date=get_timestamp_after_days(YEAR),
+        users_rules=[user_id]
+    ):
+        raise HTTPException(status_code=500, detail="Failed to create the coupon")
+    
+    if not loyalty_manager.add_transaction(user_id, -points_needed, f"Bought discount coupon of {body['DISCOUNT']}% ({coupon_code})"):
+        coupons_manager.delete(coupon_code)
+        raise HTTPException(status_code=500, detail="Failed to use the points")
+    
+    return {"status": "ok", "coupon_code": coupon_code}
 
 @app.get("/loyalty/points/{user_id}")
 def obtain_user_points(user_id: str):
