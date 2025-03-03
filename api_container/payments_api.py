@@ -13,7 +13,7 @@ import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'lib')))
-from lib.utils import time_to_string, validate_fields, validate_location, verify_coupon_rules, get_timestamp_after_days
+from lib.utils import sentry_init, time_to_string, validate_fields, validate_location, verify_coupon_rules, get_timestamp_after_days
 
 time_start = time.time()
 
@@ -26,6 +26,8 @@ DEBUG_MODE = os.getenv("DEBUG_MODE").title() == "True"
 if DEBUG_MODE:
     logger.getLogger().setLevel(logger.DEBUG)
 logger.info("DEBUG_MODE: " + str(DEBUG_MODE))
+
+sentry_init()
 
 app = FastAPI(
     title="Payments API",
