@@ -9,6 +9,9 @@ import logging as logger
 import re
 import geopy.distance
 import sentry_sdk
+from firebase_admin import messaging
+
+from api_container.mobile_token_nosql import MobileToken
 
 DAY = 24 * 60 * 60
 HOUR = 60 * 60
@@ -116,3 +119,16 @@ def sentry_init():
         },
     )
     
+def send_notification(mobile_token_manager: MobileToken, user_id: str, title: str, message: str):
+    token = mobile_token_manager.get_mobile_token(user_id)
+    if not token:
+        logger.error(f"Failed to send notification to user {user_id}: No mobile token found")
+        return
+    message = messaging.Message(
+                    notification=messaging.Notification(
+                        title=title,
+                        body=message,
+                    ),
+                    token=token
+                )
+    messaging.send(message)
