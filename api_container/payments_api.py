@@ -127,7 +127,7 @@ def create_refund_coupon(body: dict):
         users_rules=[body['user_id']]
     ):
         raise HTTPException(status_code=500, detail="Failed to create the coupon")
-    
+
     send_notification(mobile_token_manager, body['user_id'], "Refund coupon", f"Refund coupon of {body['amount']} created")
     return {"status": "ok", "coupon_code": code}
 
