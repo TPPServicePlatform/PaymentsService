@@ -1,6 +1,7 @@
 import operator
 import re
 from typing import Optional, Tuple
+from mobile_token_nosql import MobileToken
 from coupons_nosql import Coupons
 from loyalty_nosql import Loyalty
 import mongomock
@@ -13,7 +14,7 @@ import sys
 import os
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'lib')))
-from lib.utils import sentry_init, time_to_string, validate_fields, validate_location, verify_coupon_rules, get_timestamp_after_days
+from lib.utils import send_notification, sentry_init, time_to_string, validate_fields, validate_location, verify_coupon_rules, get_timestamp_after_days
 
 time_start = time.time()
 
@@ -51,15 +52,18 @@ if os.getenv('TESTING'):
     client = mongomock.MongoClient()
     coupons_manager = Coupons(test_client=client)
     loyalty_manager = Loyalty(test_client=client)
+    mobile_token_manager = MobileToken(test_client=client)
 else:
     coupons_manager = Coupons()
     loyalty_manager = Loyalty()
+    mobile_token_manager = MobileToken()
 
 REQUIRED_LOCATION_FIELDS = {"longitude", "latitude"}
 
 REQUIRED_COUPON_CREATE_FIELDS = {'coupon_code', 'discount_percent', 'expiration_date'}
 VALID_COUPON_RULES = {'category_rules', 'service_rules', 'provider_rules', 'location_rule', 'max_distance', 'users_rules'}
 VALID_COUPON_CREATE_FIELDS = {'max_discount'} | VALID_COUPON_RULES | REQUIRED_COUPON_CREATE_FIELDS
+REQUIRED_REFUND_FIELDS = {'user_id', 'amount'}
 
 REQUIRED_TRANSACTION_FIELDS = {'points', 'description'}
 
@@ -107,6 +111,25 @@ def create_coupon(body: dict):
         raise HTTPException(status_code=500, detail="Failed to create the coupon")
     
     return {"status": "ok"}
+
+@app.post("/couupons/new_refund")
+def create_refund_coupon(body: dict):
+    validate_fields(body, REQUIRED_REFUND_FIELDS, REQUIRED_REFUND_FIELDS)
+    if body['amount'] <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    
+    code = f"REFUND_{body['user_id']}_{time.time()}"
+    if not coupons_manager.insert(
+        coupon_code=code,
+        discount_percent=100,
+        max_discount=body['amount'],
+        expiration_date=get_timestamp_after_days(100*YEAR),
+        users_rules=[body['user_id']]
+    ):
+        raise HTTPException(status_code=500, detail="Failed to create the coupon")
+    
+    send_notification(mobile_token_manager, body['user_id'], "Refund coupon", f"Refund coupon of {body['amount']} created")
+    return {"status": "ok", "coupon_code": code}
 
 @app.delete("/coupons/delete/{coupon_code}")
 def delete_coupon(coupon_code: str):

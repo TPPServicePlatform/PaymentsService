@@ -5,3 +5,4 @@ uvicorn
 requests
 pymongo[srv]
 mongomock
+firebase-admin
