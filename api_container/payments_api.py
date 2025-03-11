@@ -60,6 +60,7 @@ REQUIRED_LOCATION_FIELDS = {"longitude", "latitude"}
 REQUIRED_COUPON_CREATE_FIELDS = {'coupon_code', 'discount_percent', 'expiration_date'}
 VALID_COUPON_RULES = {'category_rules', 'service_rules', 'provider_rules', 'location_rule', 'max_distance', 'users_rules'}
 VALID_COUPON_CREATE_FIELDS = {'max_discount'} | VALID_COUPON_RULES | REQUIRED_COUPON_CREATE_FIELDS
+REQUIRED_REFUND_FIELDS = {'user_id', 'amount'}
 
 REQUIRED_TRANSACTION_FIELDS = {'points', 'description'}
 
@@ -107,6 +108,24 @@ def create_coupon(body: dict):
         raise HTTPException(status_code=500, detail="Failed to create the coupon")
     
     return {"status": "ok"}
+
+@app.post("/couupons/new_refund")
+def create_refund_coupon(body: dict):
+    validate_fields(body, REQUIRED_REFUND_FIELDS, REQUIRED_REFUND_FIELDS)
+    if body['amount'] <= 0:
+        raise HTTPException(status_code=400, detail="Amount must be positive")
+    
+    code = f"REFUND_{body['user_id']}_{time.time()}"
+    if not coupons_manager.insert(
+        coupon_code=code,
+        discount_percent=100,
+        max_discount=body['amount'],
+        expiration_date=get_timestamp_after_days(100*YEAR),
+        users_rules=[body['user_id']]
+    ):
+        raise HTTPException(status_code=500, detail="Failed to create the coupon")
+    
+    return {"status": "ok", "coupon_code": code}
 
 @app.delete("/coupons/delete/{coupon_code}")
 def delete_coupon(coupon_code: str):
