@@ -1,7 +1,7 @@
 import operator
 import re
 from typing import Optional, Tuple
-from mobile_token_nosql import MobileToken
+from mobile_token_nosql import MobileToken, send_notification
 from coupons_nosql import Coupons
 from loyalty_nosql import Loyalty
 import mongomock
@@ -12,9 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 import sys
 import os
-
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'lib')))
-from lib.utils import send_notification, sentry_init, time_to_string, validate_fields, validate_location, verify_coupon_rules, get_timestamp_after_days
+from lib.utils import sentry_init, time_to_string, validate_fields, validate_location, verify_coupon_rules, get_timestamp_after_days
 
 time_start = time.time()
 
