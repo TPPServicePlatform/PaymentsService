@@ -229,6 +229,10 @@ def activate_coupon(coupon_code: str, user_id: str, body: dict):
     if not coupons_manager.add_user_to_coupon(coupon_code, user_id):
         raise HTTPException(status_code=500, detail="Failed to activate the coupon")
     
+    if not loyalty_manager.register_coupon_use(user_id, coupon_code, f"Used coupon {coupon_code}"):
+        coupons_manager.remove_user_from_coupon(coupon_code, user_id)
+        raise HTTPException(status_code=500, detail="Failed to register the coupon")
+    
     return {"status": "ok", "discount_percent": coupon['discount_percent'], "max_discount": coupon['max_discount']}
     
 @app.put("/loyalty/sum_points/{user_id}")

@@ -26,7 +26,7 @@ class Loyalty:
     - points: List[Tuple[str, str]] -> List of tuples with the following structure: (expiration timestamp, points)
     - created_at: datetime
     - updated_at: datetime
-    - history: List[Dict[str, str]] -> List of transactions that the user made. It has the following keys: {'points' || 'cash', 'timestamp', 'description'}
+    - history: List[Dict[str, str]] -> List of transactions that the user made. It has the following keys: {'points' || 'cash' || 'coupon_id', 'timestamp', 'description'}
     """
 
     def __init__(self, test_client=None, test_db=None):
@@ -147,17 +147,12 @@ class Loyalty:
         self._update_user_doc(user_id)
         return sorted([{'points': points, 'expiration_date': expiration_date} for expiration_date, points in user['points'] if expiration_date > get_actual_time()], key=lambda x: x['expiration_date'])
     
-    def _register_transaction(self, user_id: str, cash: int, description: str) -> bool:
+    def _register_cash_transaction(self, user_id: str, cash: int, description: str) -> bool:
         user = self.collection.find_one({'uuid': user_id})
         if not user:
             return False
         user['history'].append({'cash': cash, 'timestamp': get_actual_time(), 'description': description})
-        try:
-            self.collection.update_one({'uuid': user_id}, {'$set': user})
-            return True
-        except Exception as e:
-            logger.error(f"Error updating user with uuid '{user_id}': {e}")
-            return False
+        return self._update_doc(user_id, user)
     
     def register_client_payment(self, user_id: str, cash: int, description: str) -> bool:
         if cash <= 0:
@@ -167,7 +162,7 @@ class Loyalty:
         if not self._update_user_doc(user_id):
             return False
         
-        return self._register_transaction(user_id, -cash, description)
+        return self._register_cash_transaction(user_id, -cash, description)
         
     def register_payment_to_provider(self, provider_id: str, cash: int, description: str) -> bool:
         if cash <= 0:
@@ -175,6 +170,11 @@ class Loyalty:
         if not self.collection.find_one({'uuid': provider_id}) and not self._create_user_doc(provider_id):
             return False
         
-        return self._register_transaction(provider_id, cash, description)
+        return self._register_cash_transaction(provider_id, cash, description)
         
-    
+    def register_coupon_use(self, user_id: str, coupon_id: str, description: str) -> bool:
+        if not self.collection.find_one({'uuid': user_id}) and not self._create_user_doc(user_id):
+            return False
+        user = self.collection.find_one({'uuid': user_id})
+        user['history'].append({'coupon_id': coupon_id, 'timestamp': get_actual_time(), 'description': description})
+        return self._update_doc(user_id, user)
