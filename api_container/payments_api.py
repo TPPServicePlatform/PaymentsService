@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 import sys
 import os
 from lib.utils import sentry_init, time_to_string, validate_fields, validate_location, verify_coupon_rules, get_timestamp_after_days
+import stripe
 
 time_start = time.time()
 
@@ -25,6 +26,11 @@ DEBUG_MODE = os.getenv("DEBUG_MODE").title() == "True"
 if DEBUG_MODE:
     logger.getLogger().setLevel(logger.DEBUG)
 logger.info("DEBUG_MODE: " + str(DEBUG_MODE))
+
+STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET")
+if not os.getenv("STRIPE_SECRET") and not os.getenv("TESTING"):
+    raise Exception("Stripe secret key not found")
+stripe.api_key = os.getenv("STRIPE_SECRET")
 
 sentry_init()
 
@@ -76,7 +82,37 @@ logger.info(f"Payments API started in {starting_duration}")
 
 # TODO: (General) -> Create tests for each endpoint && add the required checks in each endpoint
 
-
+@app.get("/pay/{service_id}/paymentlink")
+async def create_payment_link(
+    service_id: str,
+    amount: int = Query(..., description="Amount in cents"),
+    currency: str = Query(..., description="Currency code (e.g., 'usd')"),
+    description: str = Query(..., description="Description of the product")
+):
+    try:
+        checkout_session = stripe.checkout.Session.create(
+            payment_method_types=["card"],
+            line_items=[
+                {
+                    "price_data": {
+                        "currency": currency,
+                        "product_data": {
+                            "name": "Test Product",
+                            "description": description,
+                        },
+                        "unit_amount": amount,
+                    },
+                    "quantity": 1,
+                },
+            ],
+            mode="payment",
+            success_url="https://example.com/success",  # Dummy URL, required by Stripe
+            cancel_url="https://example.com/cancel",  # Dummy URL
+        )
+        return {"url": checkout_session.url}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 @app.post("/coupons/create")
 def create_coupon(body: dict):
     validate_fields(body, REQUIRED_COUPON_CREATE_FIELDS, VALID_COUPON_CREATE_FIELDS)
@@ -110,7 +146,7 @@ def create_coupon(body: dict):
     
     return {"status": "ok"}
 
-@app.post("/couupons/new_refund")
+@app.post("/coupons/new_refund")
 def create_refund_coupon(body: dict):
     validate_fields(body, REQUIRED_REFUND_FIELDS, REQUIRED_REFUND_FIELDS)
     if body['amount'] <= 0:

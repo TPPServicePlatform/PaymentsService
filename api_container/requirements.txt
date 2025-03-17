@@ -6,3 +6,4 @@ requests
 pymongo[srv]
 mongomock
 firebase-admin
+stripe
