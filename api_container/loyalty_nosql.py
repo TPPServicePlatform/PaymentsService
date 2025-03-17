@@ -26,7 +26,7 @@ class Loyalty:
     - points: List[Tuple[str, str]] -> List of tuples with the following structure: (expiration timestamp, points)
     - created_at: datetime
     - updated_at: datetime
-    - history: List[Dict[str, str]] -> List of transactions that the user made. It has the following keys: {'points', 'timestamp', 'description'}
+    - history: List[Dict[str, str]] -> List of transactions that the user made. It has the following keys: {'points' || 'cash', 'timestamp', 'description'}
     """
 
     def __init__(self, test_client=None, test_db=None):
@@ -146,4 +146,35 @@ class Loyalty:
             return None
         self._update_user_doc(user_id)
         return sorted([{'points': points, 'expiration_date': expiration_date} for expiration_date, points in user['points'] if expiration_date > get_actual_time()], key=lambda x: x['expiration_date'])
+    
+    def _register_transaction(self, user_id: str, cash: int, description: str) -> bool:
+        user = self.collection.find_one({'uuid': user_id})
+        if not user:
+            return False
+        user['history'].append({'cash': cash, 'timestamp': get_actual_time(), 'description': description})
+        try:
+            self.collection.update_one({'uuid': user_id}, {'$set': user})
+            return True
+        except Exception as e:
+            logger.error(f"Error updating user with uuid '{user_id}': {e}")
+            return False
+    
+    def register_client_payment(self, user_id: str, cash: int, description: str) -> bool:
+        if cash <= 0:
+            return False
+        if not self.collection.find_one({'uuid': user_id}) and not self._create_user_doc(user_id):
+            return False
+        if not self._update_user_doc(user_id):
+            return False
+        
+        return self._register_transaction(user_id, -cash, description)
+        
+    def register_payment_to_provider(self, provider_id: str, cash: int, description: str) -> bool:
+        if cash <= 0:
+            return False
+        if not self.collection.find_one({'uuid': provider_id}) and not self._create_user_doc(provider_id):
+            return False
+        
+        return self._register_transaction(provider_id, cash, description)
+        
     
