@@ -113,6 +113,22 @@ async def create_payment_link(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     
+@app.post("/pay/{user_id}/paymentdone")
+def payment_done(user_id: str, body: dict):
+    validate_fields(body, {"amount", "description"}, {"amount", "description"})
+    if not loyalty_manager.register_client_payment(user_id, body['amount'], body['description']):
+        raise HTTPException(status_code=500, detail="Failed to register the payment")
+    return {"status": "ok"}
+
+@app.post("/pay/{provider_id}/paymentreceived")
+def payment_received(provider_id: str, body: dict):
+    # Add a third party app to pay to the provider
+    
+    validate_fields(body, {"amount", "description"}, {"amount", "description"})
+    if not loyalty_manager.register_provider_payment(provider_id, body['amount'], body['description']):
+        raise HTTPException(status_code=500, detail="Failed to register the payment")
+    return {"status": "ok"}
+    
 @app.post("/coupons/create")
 def create_coupon(body: dict):
     validate_fields(body, REQUIRED_COUPON_CREATE_FIELDS, VALID_COUPON_CREATE_FIELDS)
