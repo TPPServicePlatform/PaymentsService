@@ -210,6 +210,19 @@ def obtain_available_coupons(
     
     return {"status": "ok", "coupons": available_coupons}
 
+@app.get("/coupons/all")
+def obtain_user_coupons(
+    user_id: str = Query(...),
+    client_location: str = Query(...)
+):
+    location = validate_location(client_location, REQUIRED_LOCATION_FIELDS)
+    all_coupons = coupons_manager.obtain_user_coupons(
+        user_id=user_id,
+        client_location=location
+    )
+    return {"status": "ok", "coupons": all_coupons} 
+    
+
 @app.put("/coupons/activate/{coupon_code}/{user_id}")
 def activate_coupon(coupon_code: str, user_id: str, body: dict):
     needed = {'client_location', 'category', 'service_id', 'provider_id'}

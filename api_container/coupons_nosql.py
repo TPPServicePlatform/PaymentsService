@@ -167,6 +167,51 @@ class Coupons:
 
         return list(self.collection.aggregate(pipeline))
     
+    def obtain_user_coupons(self,
+                                 user_id: str,
+                                 client_location: dict,
+                                    ) -> List[Dict]:
+        pipeline = []
+
+        # Filter by expiration date
+        pipeline.append({'$match': {'expiration_date': {'$gte': get_actual_time()}}})
+
+        # Filter by location and max distance
+        # If the coupon has no location rule, it is valid for all locations
+        if not os.environ.get('MONGOMOCK'):
+            geo_near_stage = {
+                '$geoNear': {
+                    'near': {
+                        'type': 'Point',
+                        'coordinates': [client_location['longitude'], client_location['latitude']]
+                    },
+                    'distanceField': 'distance',
+                    'spherical': True
+                }
+            }
+            pipeline.append(geo_near_stage)
+
+            match_stage = {
+                '$match': {
+                    '$or': [{'max_distance': {'$exists': False}}, {'max_distance': None}, {'$expr': {'$lte': ['$distance', {'$multiply': ['$max_distance', 1000]}]}}] # Convert kilometers to meters
+                }
+            }
+            pipeline.append(match_stage)
+
+        # Filter by user
+        # If the coupon has no user rules, it is valid for all users
+        pipeline.append({'$match': {'$or': [{'users_rules': {'$exists': False}}, {'users_rules': None}, {'users_rules': {'$in': [user_id]}}]}})
+
+        # Filter by used_by (avoid multiple uses of the same coupon by the same user)
+        # used_by is a dictionary with the following structure: {'user_id': 'used_at'}
+        pipeline.append({'$match': {'$or': [{'used_by': {'$exists': False}}, {'used_by': {}}, {'used_by.' + user_id: {'$exists': False}}]}})
+
+        # Project only the necessary fields
+        pipeline.append({'$project': {'_id': 0, 'uuid': 1, 'discount_percent': 1, 'max_discount': 1, 'expiration_date': 1}})
+
+        return list(self.collection.aggregate(pipeline))
+    
+    
     def add_user_to_coupon(self, coupon_code: str, user_id: str) -> bool:
         coupon = self.get(coupon_code)
         if not coupon:
