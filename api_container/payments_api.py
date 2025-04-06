@@ -259,6 +259,33 @@ def get_refund_coupons(user_id: str):
     return {"status": "ok", "refund_coupons": refund_coupons}
 
 
+@app.put("/coupons/use_refund/{coupon_code}/{user_id}")
+def use_refund_coupon(coupon_code: str, user_id: str):
+    coupon = coupons_manager.get(coupon_code)
+
+    if not coupon:
+        raise HTTPException(status_code=404, detail="Coupon not found")
+
+    if not coupon['uuid'].startswith(f"REFUND_{user_id}_"):
+        raise HTTPException(
+            status_code=403, detail="Coupon does not belong to this user")
+
+    if 'used_by' in coupon and user_id in coupon['used_by']:
+        raise HTTPException(status_code=400, detail="Coupon already used")
+
+    success = coupons_manager.mark_coupon_as_used(coupon_code, user_id)
+
+    if not success:
+        raise HTTPException(
+            status_code=500, detail="Failed to mark coupon as used")
+
+    if not loyalty_manager.register_coupon_use(user_id, coupon_code, f"Used refund coupon {coupon_code}"):
+        raise HTTPException(
+            status_code=500, detail="Failed to register usage in loyalty system")
+
+    return {"status": "ok", "message": f"Coupon {coupon_code} used"}
+
+
 @app.put("/coupons/activate/{coupon_code}/{user_id}")
 def activate_coupon(coupon_code: str, user_id: str, body: dict):
     needed = {'client_location', 'category', 'service_id', 'provider_id'}

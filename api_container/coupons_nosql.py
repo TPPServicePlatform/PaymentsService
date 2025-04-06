@@ -185,6 +185,7 @@ class Coupons:
         }, {
             '_id': 0,
             'uuid': 1,
+            'coupon_code': 1,
             'max_discount': 1,
             'expiration_date': 1,
             'discount_percent': 1,
@@ -264,6 +265,17 @@ class Coupons:
         })
 
         return list(self.collection.aggregate(pipeline))
+
+    def mark_coupon_as_used(self, coupon_code: str, user_id: str) -> bool:
+        try:
+            result = self.collection.update_one(
+                {'uuid': coupon_code},
+                {'$set': {f'used_by.{user_id}': get_actual_time()}}
+            )
+            return result.modified_count > 0
+        except Exception as e:
+            logger.error(f"Error marking coupon {coupon_code} as used: {e}")
+            return False
 
     def add_user_to_coupon(self, coupon_code: str, user_id: str) -> bool:
         coupon = self.get(coupon_code)
